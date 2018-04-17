@@ -4295,9 +4295,9 @@ HTML;
 //            'H',
 //            'He',
 //            'Np',
-//            'Fr',
+            'Fr',
 //            'At',
-            'Cf',
+//            'Cf',
         ];
 
         $progressBar = new ProgressBar($output, \count($elements));
@@ -4307,7 +4307,7 @@ HTML;
             $url_1 = 'https://physics.nist.gov/cgi-bin/ASD/lines_hold.pl?el=' . $element;
             $referrer = 'https://physics.nist.gov/cgi-bin/ASD/lines_pt.pl';
             $html = $this->htmlIons;
-//            $html = $this->httpRequest($url_1, $referrer);
+            $html = $this->httpRequest($url_1, $referrer);
             $crawler = new Crawler($html);
             $rows = $this->parseIons($crawler);
 
@@ -4318,16 +4318,23 @@ HTML;
                     'Lines with transition probabilities',
                     'Lines with level designations'
                 ])->setRows($rows);
+
+
+            $progressBar->clear();
             $tableIons->render();
+            $progressBar->display();
 
             foreach ($rows as $row) {
 
                 [$rows, $headers] = $this->parseSpectra($url_1, $row[0]);
 
-                $table = new Table($output);
-                $table->setHeaders($headers)
+                $tableLines = new Table($output);
+                $tableLines->setHeaders($headers)
                     ->setRows($rows);
-                $table->render();
+
+                $progressBar->clear();
+                $tableLines->render();
+                $progressBar->display();
             }
             $progressBar->advance();
         }
@@ -4363,7 +4370,7 @@ HTML;
     {
         $url = 'https://physics.nist.gov/cgi-bin/ASD/lines1.pl?unit=1&line_out=0&bibrefs=1&show_obs_wl=1&show_calc_wl=1&A_out=0&intens_out=1&allowed_out=1&forbid_out=1&conf_out=1&term_out=1&enrg_out=1&J_out=1&g_out=0&spectra=' . rawurlencode($spectra);
         $html2 = $this->htmlSpectra;
-//        $html2 = $this->httpRequest($url, $referrer);
+        $html2 = $this->httpRequest($url, $referrer);
         $crawler = new Crawler($html2);
         $headers = $this->parseHeaders($crawler);
         $rows = $this->parseRows($crawler, $headers);

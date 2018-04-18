@@ -34,13 +34,18 @@ class AppParseCommand extends Command
     protected function configure()
     {
         $this
-            ->addArgument('el', InputArgument::REQUIRED, 'element')
-        ;
-    }
+            // the name of the command (the part after "bin/console")
+            ->setName('nist:parse')
 
-    public function __construct()
-    {
-        parent::__construct('nist:parse');
+            // the short description shown while running "php bin/console list"
+            ->setDescription('Parses the NIST Atomic Spectra Database')
+
+            // the full command description shown when running the command with
+            // the "--help" option
+            ->setHelp('This command allows you to...')
+            // configure an argument
+            ->addArgument('el', InputArgument::IS_ARRAY, 'Elements (separate multiple names with a space)')
+        ;
     }
 
     /**
@@ -84,7 +89,7 @@ class AppParseCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
 
-        $elements = [$input->getArgument('el')] ?? $this->getElements();
+        $elements = $input->getArgument('el') ?: $this->getElements();
 
         $progressBar = new ProgressBar($output, \count($elements));
         $progressBar->start();
@@ -120,7 +125,6 @@ class AppParseCommand extends Command
 
                 $progressBar->display();
             }
-            return 1;
             $progressBar->advance();
         }
         $progressBar->finish();
@@ -157,11 +161,8 @@ class AppParseCommand extends Command
         $html2 = $this->httpRequest($url, $referrer);
         $crawler = new Crawler($html2);
         $headers = $this->parseHeaders($crawler);
-        $rows = $this->parseRows($crawler, $headers);
-        return [
-            $rows,
-            $headers
-        ];
+        $rows = $this->parseRows($crawler, \count($headers[0]));
+        return [$rows, $headers];
     }
 
     /**
@@ -184,20 +185,20 @@ class AppParseCommand extends Command
 
     /**
      * @param Crawler $crawler
-     * @param array $headers
+     * @param int $chunk
      * @return array
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
      */
-    protected function parseRows(Crawler $crawler, array $headers): array
+    protected function parseRows(Crawler $crawler, int $chunk): array
     {
-        $data = array_filter($crawler->filter('tbody')->each(function (Crawler $node, $i) use ($headers) {
+        $data = array_filter($crawler->filter('tbody')->each(function (Crawler $node, $i) use ($chunk) {
             $oddRows = array_chunk($node->children()->filter('tr.odd  > td')->each(function (Crawler $node, $i) {
                 return trim(trim($node->text()), \chr(0xC2) . \chr(0xA0));
-            }), \count($headers[0]));
+            }), $chunk);
             $envRows = array_chunk($node->children()->filter('tr.evn  > td')->each(function (Crawler $node, $i) {
                 return trim(trim($node->text()), \chr(0xC2) . \chr(0xA0));
-            }), \count($headers[0]));
+            }), $chunk);
             return array_merge($oddRows, $envRows);
         }));
         return $data;

@@ -9,5 +9,4 @@
 1. `git clone git@github.com:klim0v/NistParseDatabase.git`
 2. `cd NistParseDatabase`
 3. `composer install`
-4. `php bin/console server:start`
 5. `php bin/console nist:parse --help`

@@ -2,11 +2,13 @@
 
 namespace App\Command;
 
+use App\Entity\Element;
+use App\Entity\Ion;
+use Doctrine\ORM\EntityManagerInterface;
 use GuzzleHttp\Client;
 use GuzzleHttp\RequestOptions;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
-use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -17,6 +19,9 @@ use Symfony\Component\DomCrawler\Crawler;
  */
 class AppParseCommand extends Command
 {
+    const HOLDINGS_URL = 'https://physics.nist.gov/cgi-bin/ASD/lines_hold.pl';
+    const LINES_URL = 'https://physics.nist.gov/cgi-bin/ASD/lines1.pl?unit=1&line_out=0&bibrefs=1&show_obs_wl=1&show_calc_wl=1&A_out=0&intens_out=1&allowed_out=1&forbid_out=1&conf_out=1&term_out=1&enrg_out=1&J_out=1&g_out=0';
+    const PT_URL = 'https://physics.nist.gov/cgi-bin/ASD/lines_pt.pl';
 
     /** @var Client */
     protected $httpClient;
@@ -28,24 +33,33 @@ class AppParseCommand extends Command
         'User-Agent' => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36',
     ];
 
+    /** @var EntityManagerInterface */
+    protected $em;
+
     /**
-     *
+     * AppParseCommand constructor.
+     * @param EntityManagerInterface $em
+     * @param null $name
+     */
+    public function __construct(EntityManagerInterface $em, $name = null)
+    {
+        parent::__construct('nist:parse');
+        $this->em = $em;
+    }
+
+    /**
+     * {@inheritdoc}
      */
     protected function configure()
     {
         $this
-            // the name of the command (the part after "bin/console")
-            ->setName('nist:parse')
-
             // the short description shown while running "php bin/console list"
             ->setDescription('Parses the NIST Atomic Spectra Database')
-
             // the full command description shown when running the command with
             // the "--help" option
             ->setHelp('This command allows you to...')
             // configure an argument
-            ->addArgument('el', InputArgument::IS_ARRAY, 'Elements (separate multiple names with a space)')
-        ;
+            ->addArgument('el', InputArgument::IS_ARRAY, 'Elements (separate multiple names with a space)');
     }
 
     /**
@@ -80,6 +94,10 @@ class AppParseCommand extends Command
 
     /**
      * {@inheritdoc}
+     * @throws \Doctrine\Common\Persistence\Mapping\MappingException
+     * @throws \Doctrine\ORM\OptimisticLockException
+     * @throws \Doctrine\ORM\ORMInvalidArgumentException
+     * @throws \Doctrine\ORM\ORMException
      * @throws \Symfony\Component\Console\Exception\InvalidArgumentException
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
@@ -95,38 +113,45 @@ class AppParseCommand extends Command
         $progressBar->start();
 
         foreach ($elements as $element) {
-            $url = 'https://physics.nist.gov/cgi-bin/ASD/lines_hold.pl?el=' . $element;
-            $rows = $this->getIons($url);
+            $el = new Element($element);
+            $rows = $this->getIons(self::HOLDINGS_URL . '?el=' . $el->getTitle());
 
-            $tableIons = new Table($output);
-            $tableIons->setHeaders([
-                    'Ion',
-                    'No. of lines',
-                    'Lines with transition probabilities',
-                    'Lines with level designations'
-                ])->setRows($rows);
-
-
-            $progressBar->clear();
-            $tableIons->render();
-            $progressBar->display();
+//            $tableIons = new Table($output);
+//            $tableIons->setHeaders([
+//                    'Ion',
+//                    'No. of lines',
+//                    'Lines with transition probabilities',
+//                    'Lines with level designations'
+//            ])->setRows($rows);
+//
+//
+//            $progressBar->clear();
+//            $tableIons->render();
+//            $progressBar->display();
 
             foreach ($rows as $row) {
-                [$rows, $headers] = $this->getSpectra($url, $row[0]);
+                $ion = new Ion($row[0]);
+                $el->addIon($ion);
+//                [$rows, $headers] = $this->getSpectra($ion->getTitle());
 
-                $progressBar->clear();
+//                $progressBar->clear();
 
-                $tableLines = new Table($output);
-                array_map(function ($v1, $v2) use ($tableLines) {
-                    $tableLines->setHeaders($v1)
-                        ->setRows($v2);
-                    $tableLines->render();
-                }, $headers, $rows);
+//                $tableLines = new Table($output);
+//                array_map(function ($v1, $v2) use ($tableLines) {
+//                    $tableLines->setHeaders($v1)
+//                        ->setRows($v2);
+//                    $tableLines->render();
+//                }, $headers, $rows);
 
-                $progressBar->display();
+//                $progressBar->display();
             }
+
+            $this->em->persist($el);
             $progressBar->advance();
         }
+        $this->em->flush();
+        $this->em->clear();
+
         $progressBar->finish();
 
         return 0;
@@ -155,9 +180,10 @@ class AppParseCommand extends Command
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Throwable
      */
-    protected function getSpectra(string $referrer, string $spectra): array
+    protected function getSpectra(string $spectra): array
     {
-        $url = 'https://physics.nist.gov/cgi-bin/ASD/lines1.pl?unit=1&line_out=0&bibrefs=1&show_obs_wl=1&show_calc_wl=1&A_out=0&intens_out=1&allowed_out=1&forbid_out=1&conf_out=1&term_out=1&enrg_out=1&J_out=1&g_out=0&spectra=' . rawurlencode($spectra);
+        $referrer = self::HOLDINGS_URL . '?el=' . $spectra;
+        $url = self::LINES_URL . '&spectra=' . rawurlencode($spectra);
         $html2 = $this->httpRequest($url, $referrer);
         $crawler = new Crawler($html2);
         $headers = $this->parseHeaders($crawler);
@@ -214,7 +240,7 @@ class AppParseCommand extends Command
      */
     protected function getIons($url): array
     {
-        $referrer = 'https://physics.nist.gov/cgi-bin/ASD/lines_pt.pl';
+        $referrer = self::PT_URL;
         $html = $this->httpRequest($url, $referrer);
         $crawler = new Crawler($html);
         return $this->parseIons($crawler);
@@ -229,7 +255,7 @@ class AppParseCommand extends Command
      */
     protected function getElements(): array
     {
-        $html = $this->httpRequest('https://physics.nist.gov/cgi-bin/ASD/lines_pt.pl');
+        $html = $this->httpRequest(self::PT_URL);
         $crawler = new Crawler($html);
         $elements = $crawler->filter('td > a.pth')->each(function (Crawler $node, $i) {
             return $node->attr('id');

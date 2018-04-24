@@ -31,17 +31,16 @@ class Ion
     private $title;
 
     /**
-     * @var Line[]|ArrayCollection
+     * @var Spectrum[]|ArrayCollection
      *
      * @ORM\OneToMany(
-     *      targetEntity="Line",
+     *      targetEntity="Spectrum",
      *      mappedBy="ion",
      *      orphanRemoval=true,
      *      cascade={"persist"}
      * )
-     * @ORM\OrderBy({"number": "DESC"})
      */
-    private $lines;
+    private $spectra;
 
     /**
      * @var Element
@@ -54,6 +53,7 @@ class Ion
     public function __construct($title)
     {
         $this->title = $title;
+        $this->spectra = new ArrayCollection();
     }
 
     public function getId(): int
@@ -81,22 +81,22 @@ class Ion
         $this->title = $title;
     }
 
-    public function getLines(): Collection
+    public function getSpectra(): Collection
     {
-        return $this->lines;
+        return $this->spectra;
     }
 
-    public function addLine(?Line $line): void
+    public function addSpectrum(?Spectrum $spectrum): void
     {
-        $line->setIon($this);
-        if (!$this->lines->contains($line)) {
-            $this->lines->add($line);
+        $spectrum->setIon($this);
+        if (!$this->spectra->contains($spectrum)) {
+            $this->spectra->add($spectrum);
         }
     }
 
-    public function removeIon(Line $line): void
+    public function removeIon(Spectrum $spectrum): void
     {
-        $line->setIon(null);
-        $this->lines->removeElement($line);
+        $spectrum->setIon(null);
+        $this->spectra->removeElement($spectrum);
     }
 }

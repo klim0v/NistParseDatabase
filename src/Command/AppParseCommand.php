@@ -4,6 +4,7 @@ namespace App\Command;
 
 use App\Entity\Element;
 use App\Entity\Ion;
+use App\Entity\Spectrum;
 use Doctrine\ORM\EntityManagerInterface;
 use GuzzleHttp\Client;
 use GuzzleHttp\RequestOptions;
@@ -23,6 +24,108 @@ class AppParseCommand extends Command
     const LINES_URL = 'https://physics.nist.gov/cgi-bin/ASD/lines1.pl?unit=1&line_out=0&bibrefs=1&show_obs_wl=1&show_calc_wl=1&A_out=0&intens_out=1&allowed_out=1&forbid_out=1&conf_out=1&term_out=1&enrg_out=1&J_out=1&g_out=0';
     const PT_URL = 'https://physics.nist.gov/cgi-bin/ASD/lines_pt.pl';
 
+    protected $elements = array(
+        0 => 'H',
+        1 => 'He',
+        2 => 'Li',
+        3 => 'Be',
+        4 => 'B',
+        5 => 'C',
+        6 => 'N',
+        7 => 'O',
+        8 => 'F',
+        9 => 'Ne',
+        10 => 'Na',
+        11 => 'Mg',
+        12 => 'Al',
+        13 => 'Si',
+        14 => 'P',
+        15 => 'S',
+        16 => 'Cl',
+        17 => 'Ar',
+        18 => 'K',
+        19 => 'Ca',
+        20 => 'Sc',
+        21 => 'Ti',
+        22 => 'V',
+        23 => 'Cr',
+        24 => 'Mn',
+        25 => 'Fe',
+        26 => 'Co',
+        27 => 'Ni',
+        28 => 'Cu',
+        29 => 'Zn',
+        30 => 'Ga',
+        31 => 'Ge',
+        32 => 'As',
+        33 => 'Se',
+        34 => 'Br',
+        35 => 'Kr',
+        36 => 'Rb',
+        37 => 'Sr',
+        38 => 'Y',
+        39 => 'Zr',
+        40 => 'Nb',
+        41 => 'Mo',
+        42 => 'Tc',
+        43 => 'Ru',
+        44 => 'Rh',
+        45 => 'Pd',
+        46 => 'Ag',
+        47 => 'Cd',
+        48 => 'In',
+        49 => 'Sn',
+        50 => 'Sb',
+        51 => 'Te',
+        52 => 'I',
+        53 => 'Xe',
+        54 => 'Cs',
+        55 => 'Ba',
+        56 => 'Hf',
+        57 => 'Ta',
+        58 => 'W',
+        59 => 'Re',
+        60 => 'Os',
+        61 => 'Ir',
+        62 => 'Pt',
+        63 => 'Au',
+        64 => 'Hg',
+        65 => 'Tl',
+        66 => 'Pb',
+        67 => 'Bi',
+        68 => 'Po',
+        69 => 'At',
+        70 => 'Rn',
+        71 => 'Fr',
+        72 => 'Ra',
+        73 => 'La',
+        74 => 'Ce',
+        75 => 'Pr',
+        76 => 'Nd',
+        77 => 'Pm',
+        78 => 'Sm',
+        79 => 'Eu',
+        80 => 'Gd',
+        81 => 'Tb',
+        82 => 'Dy',
+        83 => 'Ho',
+        84 => 'Er',
+        85 => 'Tm',
+        86 => 'Yb',
+        87 => 'Lu',
+        88 => 'Ac',
+        89 => 'Th',
+        90 => 'Pa',
+        91 => 'U',
+        92 => 'Np',
+        93 => 'Pu',
+        94 => 'Am',
+        95 => 'Cm',
+        96 => 'Bk',
+        97 => 'Cf',
+        98 => 'Es',
+    );
+
     /** @var Client */
     protected $httpClient;
 
@@ -40,6 +143,7 @@ class AppParseCommand extends Command
      * AppParseCommand constructor.
      * @param EntityManagerInterface $em
      * @param null $name
+     * @throws \Symfony\Component\Console\Exception\LogicException
      */
     public function __construct(EntityManagerInterface $em, $name = null)
     {
@@ -107,7 +211,9 @@ class AppParseCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
 
-        $elements = $input->getArgument('el') ?: $this->getElements();
+        $elements = $input->getArgument('el')
+            ? array_intersect($input->getArgument('el'), $this->getElements())
+            : $this->getElements();
 
         $progressBar = new ProgressBar($output, \count($elements));
         $progressBar->start();
@@ -116,36 +222,18 @@ class AppParseCommand extends Command
             $el = new Element($element);
             $rows = $this->getIons(self::HOLDINGS_URL . '?el=' . $el->getTitle());
 
-//            $tableIons = new Table($output);
-//            $tableIons->setHeaders([
-//                    'Ion',
-//                    'No. of lines',
-//                    'Lines with transition probabilities',
-//                    'Lines with level designations'
-//            ])->setRows($rows);
-//
-//
-//            $progressBar->clear();
-//            $tableIons->render();
-//            $progressBar->display();
-
             foreach ($rows as $row) {
                 $ion = new Ion($row[0]);
                 $el->addIon($ion);
-//                [$rows, $headers] = $this->getSpectra($ion->getTitle());
-
-//                $progressBar->clear();
-
-//                $tableLines = new Table($output);
-//                array_map(function ($v1, $v2) use ($tableLines) {
-//                    $tableLines->setHeaders($v1)
-//                        ->setRows($v2);
-//                    $tableLines->render();
-//                }, $headers, $rows);
-
-//                $progressBar->display();
+                [$headers, $records] = $this->getSpectra($ion->getTitle());
+                array_map(function ($fields, $records) use ($ion) {
+                    foreach ($records as $values) {
+                        $combined = array_combine($fields, $values);
+                        $spectrum = new Spectrum($combined);
+                        $ion->addSpectrum($spectrum);
+                    }
+                }, $headers, $records);
             }
-
             $this->em->persist($el);
             $progressBar->advance();
         }
@@ -172,11 +260,8 @@ class AppParseCommand extends Command
     }
 
     /**
-     * @param string $referrer
      * @param string $spectra
      * @return array
-     * @throws \InvalidArgumentException
-     * @throws \RuntimeException
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Throwable
      */
@@ -188,7 +273,7 @@ class AppParseCommand extends Command
         $crawler = new Crawler($html2);
         $headers = $this->parseHeaders($crawler);
         $rows = $this->parseRows($crawler, \count($headers[0]));
-        return [$rows, $headers];
+        return [$headers, $rows];
     }
 
     /**
@@ -247,14 +332,16 @@ class AppParseCommand extends Command
     }
 
     /**
+     * @param bool $variable
      * @return array
-     * @throws \InvalidArgumentException
-     * @throws \RuntimeException
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Throwable
      */
-    protected function getElements(): array
+    protected function getElements(bool $variable = true): array
     {
+        if ($variable) {
+            return $this->elements;
+        }
         $html = $this->httpRequest(self::PT_URL);
         $crawler = new Crawler($html);
         $elements = $crawler->filter('td > a.pth')->each(function (Crawler $node, $i) {

@@ -53,7 +53,6 @@ class Element
      *      orphanRemoval=true,
      *      cascade={"persist"}
      * )
-     * @ORM\OrderBy({"number": "DESC"})
      */
     private $ions;
 

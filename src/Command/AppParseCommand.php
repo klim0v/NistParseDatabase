@@ -17,6 +17,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * Class AppParseCommand
+ * todo разбить на разные классы по разделению отпветственности
  */
 class AppParseCommand extends Command
 {
@@ -143,7 +144,6 @@ class AppParseCommand extends Command
      * AppParseCommand constructor.
      * @param EntityManagerInterface $em
      * @param null $name
-     * @throws \Symfony\Component\Console\Exception\LogicException
      */
     public function __construct(EntityManagerInterface $em, $name = null)
     {
@@ -180,12 +180,12 @@ class AppParseCommand extends Command
             $this->httpClient = new Client();
         }
 
-        sleep(1);
+//        sleep(random_int(3,7));
 
         try {
             $response = $this->httpClient->request('GET', $url, [
                 RequestOptions::HEADERS => array_merge($this->headers, ['Referer' => $referrer]),
-                RequestOptions::TIMEOUT => 150,
+                RequestOptions::TIMEOUT => 200,
             ]);
         } catch (\Throwable $e) {
             // todo: logging
@@ -198,10 +198,7 @@ class AppParseCommand extends Command
 
     /**
      * {@inheritdoc}
-     * @throws \Doctrine\Common\Persistence\Mapping\MappingException
-     * @throws \Doctrine\ORM\OptimisticLockException
      * @throws \Doctrine\ORM\ORMInvalidArgumentException
-     * @throws \Doctrine\ORM\ORMException
      * @throws \Symfony\Component\Console\Exception\InvalidArgumentException
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
@@ -215,11 +212,20 @@ class AppParseCommand extends Command
             ? array_intersect($input->getArgument('el'), $this->getElements())
             : $this->getElements();
 
-        $progressBar = new ProgressBar($output, \count($elements));
+        $repository = $this->em->getRepository(Element::class);
+        $all = $repository->findAll();
+        $dbElements = array_map(function ($item) {
+            return $item->getTitle();
+        }, $all);
+//        todo сначала распарсить все ионы, и посчитать сколько всего линий и выводить их количество в прогресс-баре
+        $progressBar = new ProgressBar($output, \count(array_diff($elements, $dbElements)));
         $progressBar->start();
 
-        foreach ($elements as $element) {
-            $el = new Element($element);
+        foreach ($elements as $number => $element) {
+            if (array_keys($dbElements, $element)) {
+                continue;
+            }
+            $el = new Element($element, $number);
             $rows = $this->getIons(self::HOLDINGS_URL . '?el=' . $el->getTitle());
 
             foreach ($rows as $row) {
@@ -234,11 +240,13 @@ class AppParseCommand extends Command
                     }
                 }, $headers, $records);
             }
+
             $this->em->persist($el);
+            $this->em->flush();
+            $this->em->clear();
+
             $progressBar->advance();
         }
-        $this->em->flush();
-        $this->em->clear();
 
         $progressBar->finish();
 
@@ -286,7 +294,16 @@ class AppParseCommand extends Command
     {
         $headers = array_filter($crawler->filter('tbody > tr')->each(function (Crawler $node, $i) {
             $temps = $node->children()->filter('th')->each(function (Crawler $node, $i) {
-                $trimmed = trim(trim(strip_tags($node->text())), \chr(0xC2) . \chr(0xA0));
+                $trimmed = trim(
+                    trim(
+                        str_replace(
+                            '\\u00a0',
+                            '',
+                            strip_tags($node->text())
+                        ),
+                        \chr(0xC2) . \chr(0xA0)
+                    )
+                );
                 return \substr_count($trimmed, ', ') ? explode(', ', $trimmed) : [$trimmed];
             });
             return $temps ? array_merge(...$temps) : null;
@@ -347,6 +364,11 @@ class AppParseCommand extends Command
         $elements = $crawler->filter('td > a.pth')->each(function (Crawler $node, $i) {
             return $node->attr('id');
         });
+//        todo парсить номера элементов
+//        $numbers = $crawler->filter('td > sup')->each(function (Crawler $node, $i) {
+//            return $node->text();
+//        });
+//        return array_combine($numbers, $elements);
         return $elements;
     }
 }

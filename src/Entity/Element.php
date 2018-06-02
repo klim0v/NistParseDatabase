@@ -27,12 +27,12 @@ class Element
     private $id;
 
     /**
-     * @ORM\Column(type="string", length=255)
+     * @ORM\Column(type="string", length=255, unique=true)
      */
     private $title;
 
     /**
-     * @ORM\Column(type="integer", nullable=true)
+     * @ORM\Column(type="integer", nullable=true, unique=true)
      */
     private $number;
 
@@ -50,15 +50,15 @@ class Element
      * @ORM\OneToMany(
      *      targetEntity="Ion",
      *      mappedBy="element",
-     *      orphanRemoval=true,
      *      cascade={"persist"}
      * )
      */
     private $ions;
 
-    public function __construct(string $title)
+    public function __construct(string $title, int $number)
     {
         $this->title = $title;
+        $this->number = $number;
         $this->createdAt = new \DateTime();
         $this->ions = new ArrayCollection();
     }

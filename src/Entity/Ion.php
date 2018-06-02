@@ -26,7 +26,7 @@ class Ion
     private $id;
 
     /**
-     * @ORM\Column(type="string")
+     * @ORM\Column(type="string", unique=true)
      */
     private $title;
 
@@ -36,8 +36,7 @@ class Ion
      * @ORM\OneToMany(
      *      targetEntity="Spectrum",
      *      mappedBy="ion",
-     *      orphanRemoval=true,
-     *      cascade={"persist"}
+     *     cascade={"persist"}
      * )
      */
     private $spectra;
@@ -45,8 +44,8 @@ class Ion
     /**
      * @var Element
      *
-     * @ORM\ManyToOne(targetEntity="Element", inversedBy="ions")
-     * @ORM\JoinColumn(nullable=false)
+     * @ORM\ManyToOne(targetEntity="Element", inversedBy="ions", cascade={"remove"})
+     * @ORM\JoinColumn(nullable=false, onDelete="cascade")
      */
     private $element;
 

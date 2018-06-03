@@ -51,21 +51,6 @@ class Spectrum
     /**
      * @ORM\Column(type="string", nullable=true)
      */
-    private $term;
-
-    /**
-     * @ORM\Column(type="string", nullable=true)
-     */
-    private $upperLevelConf;
-
-    /**
-     * @ORM\Column(type="string", nullable=true)
-     */
-    private $lowerLevelConf;
-
-    /**
-     * @ORM\Column(type="string", nullable=true)
-     */
     private $type;
 
     /**
@@ -88,10 +73,25 @@ class Spectrum
      */
     private $ek;
 
-    /**
-     * @ORM\Column(type="string", nullable=true)
-     */
-    private $j;
+//    /**
+//     * @ORM\Column(type="string", nullable=true)
+//     */
+//    private $term;
+//      todo исправить объединение этих полей
+//    /**
+//     * @ORM\Column(type="string", nullable=true)
+//     */
+//    private $upperLevelConf;
+//
+//    /**
+//     * @ORM\Column(type="string", nullable=true)
+//     */
+//    private $lowerLevelConf;
+
+//    /**
+//     * @ORM\Column(type="string", nullable=true)
+//     */
+//    private $j;
 
     /**
      * @ORM\Column(type="string", nullable=true)
@@ -102,11 +102,11 @@ class Spectrum
      * @ORM\Column(type="string", nullable=true)
      */
     private $lineRef;
-
-    /**
-     * @ORM\Column(type="json_array", nullable=true)
-     */
-    private $other;
+//
+//    /**
+//     * @ORM\Column(type="json_array", nullable=true)
+//     */
+//    private $other;
 
     /**
      * @var Ion
@@ -119,7 +119,7 @@ class Spectrum
 
     public function __construct(array $combined)
     {
-        $this->other = [];
+//        $this->other = [];
         /*var_export($combined);
         array (
             'Observed  Wavelength  Air (nm)' => '244.79058',
@@ -176,20 +176,20 @@ class Spectrum
                 case 'Ek  (cm-1)':
                     $this->setEk($value);
                     break;
-                case 'Lower Level  Conf.':
+                /*case 'Lower Level  Conf.':
                     $this->setLowerLevelConf($value);
+                    break;
+                case 'Term':
+                    $this->setTerm($value);
                     break;
                 case 'J':
                     $this->setJ($value);
                     break;
                 case 'Upper Level  Conf.':
                     $this->setUpperLevelConf($value);
-                    break;
+                    break;*/
                 case 'Type':
                     $this->setType($value);
-                    break;
-                case 'Term':
-                    $this->setTerm($value);
                     break;
                 case 'TPRef.':
                     $this->setTPRef($value);
@@ -200,7 +200,7 @@ class Spectrum
                 case '':
                     break;
                 default:
-                    $this->addOther([$key => $value]);
+//                    $this->addOther([$key => $value]);
                     break;
             }
         }
@@ -474,5 +474,4 @@ class Spectrum
     {
         $this->unc = $unc;
     }
-
 }
